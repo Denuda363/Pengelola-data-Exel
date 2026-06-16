@@ -1,0 +1,6 @@
+{
+  "name": "Pengelola File Excel",
+  "description": "Aplikasi web untuk mengunggah, menampilkan, memfilter berdasarkan header, dan mencetak hasil filter dari file Excel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
