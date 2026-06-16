@@ -15,6 +15,9 @@ interface ExcelPrintTemplateProps {
   quickSearchQuery: string;
   paperSize: string;
   paperOrientation: 'portrait' | 'landscape';
+  reportTitle: string;
+  printTitleRowIndices?: number[];
+  originalRows?: ExcelRow[];
 }
 
 export default function ExcelPrintTemplate({
@@ -26,6 +29,9 @@ export default function ExcelPrintTemplate({
   quickSearchQuery,
   paperSize,
   paperOrientation,
+  reportTitle,
+  printTitleRowIndices = [],
+  originalRows,
 }: ExcelPrintTemplateProps) {
   const currentDateStr = new Date().toLocaleString('id-ID', {
     weekday: 'long',
@@ -110,7 +116,7 @@ export default function ExcelPrintTemplate({
       <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-end">
         <div>
           <h1 className="text-xl font-bold uppercase tracking-tight text-slate-900">
-            Laporan Analisis Data Excel
+            {reportTitle || 'Laporan Analisis Data Excel'}
           </h1>
           <p className="text-slate-500 text-[10px] mt-1 font-mono">
             Sumber Berkas: {fileName} &bull; Lembar Kerja: {sheetName}
@@ -168,6 +174,22 @@ export default function ExcelPrintTemplate({
       {/* High-contrast printable grid table */}
       <table className="w-full text-left border-collapse border border-slate-400 print-grid-table">
         <thead>
+          {/* Custom Print Title Rows */}
+          {originalRows && printTitleRowIndices.length > 0 && printTitleRowIndices.map(rowIndex => {
+            const row = originalRows[rowIndex];
+            if (!row) return null;
+            return (
+              <tr key={`print-title-row-${rowIndex}`} className="bg-slate-200 text-[10px] font-bold text-slate-900 border-b border-slate-400">
+                <th className="py-2 px-2 border-r border-slate-400 w-10 text-center font-mono">{rowIndex + 1}</th>
+                {columns.map(col => (
+                  <th key={`ptc-${col.key}`} className="py-2 px-2 border-r border-slate-400 last:border-0 font-medium">
+                    {formatPrintCellValue(row[col.key], col.type, col.key)}
+                  </th>
+                ))}
+              </tr>
+            );
+          })}
+
           <tr className="bg-slate-100 text-[10px] font-bold text-slate-900 border-b border-slate-400 font-mono">
             <th className="py-2 px-2 border-r border-slate-400 w-10 text-center">No</th>
             {columns.map(col => (

@@ -19,6 +19,8 @@ export default function App() {
   const [printedColumnKeys, setPrintedColumnKeys] = useState<string[]>([]);
   const [printPaperSize, setPrintPaperSize] = useState<string>('A4');
   const [printPaperOrientation, setPrintPaperOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [reportTitle, setReportTitle] = useState<string>('Laporan Analisis Data Excel');
+  const [printTitleRowsInput, setPrintTitleRowsInput] = useState<string>('');
   const [showColDropdown, setShowColDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +29,25 @@ export default function App() {
     if (!workbook || workbook.sheets.length === 0) return null;
     return workbook.sheets[workbook.activeSheetIndex] || workbook.sheets[0];
   }, [workbook]);
+
+  // Parse print title rows input into an array of indices
+  const printTitleRowIndices = useMemo(() => {
+    if (!printTitleRowsInput.trim()) return [];
+    const parts = printTitleRowsInput.split(',');
+    const indices = new Set<number>();
+    for (const part of parts) {
+      if (part.includes('-')) {
+        const [start, end] = part.split('-').map(s => parseInt(s.trim(), 10));
+        if (!isNaN(start) && !isNaN(end) && start > 0 && end >= start) {
+          for (let i = start; i <= end; i++) indices.add(i - 1);
+        }
+      } else {
+        const val = parseInt(part.trim(), 10);
+        if (!isNaN(val) && val > 0) indices.add(val - 1);
+      }
+    }
+    return Array.from(indices).sort((a,b) => a-b);
+  }, [printTitleRowsInput]);
 
   // Sync printedColumnKeys with currentSheet columns when sheet/data changes
   useEffect(() => {
@@ -228,6 +249,9 @@ export default function App() {
           quickSearchQuery={quickSearch}
           paperSize={printPaperSize}
           paperOrientation={printPaperOrientation}
+          reportTitle={reportTitle}
+          printTitleRowIndices={printTitleRowIndices}
+          originalRows={currentSheet.rows}
         />
       )}
 
@@ -269,10 +293,10 @@ export default function App() {
         {workbook && currentSheet ? (
           <>
             {/* Control Panel: Sheet switching & Global Statistics & PRINT BUTTON */}
-            <div id="module-dashboard-actions" className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div id="module-dashboard-actions" className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               
               {/* Sheet Navigation Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 xl:pb-0 scrollbar-none">
                 <div className="flex items-center gap-1 text-slate-500 mr-2 text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
                   <Library className="w-3.5 h-3.5" />
                   Lembar Kerja:
@@ -301,16 +325,38 @@ export default function App() {
               </div>
 
               {/* Print Data Control & Statistics */}
-              <div className="flex items-center justify-between md:justify-end gap-3 border-t md:border-t-0 border-slate-800 pt-3 md:pt-0">
-                <div className="text-left font-sans mr-2">
+              <div className="flex flex-wrap items-center justify-between xl:justify-end gap-3 border-t xl:border-t-0 border-slate-800 pt-3 xl:pt-0">
+                <div className="text-left font-sans mr-2 shrink-0">
                   <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">Hasil Filter</span>
                   <span id="filtered-matches-tag" className="text-xs text-slate-400 font-medium">
                     Lolos: <strong className="text-emerald-400 font-bold font-mono">{filteredRows.length}</strong> / <span className="font-mono">{currentSheet.rows.length}</span> baris
                   </span>
                 </div>
 
+                <div className="relative xs:hidden sm:block shrink-0">
+                  <input
+                    type="text"
+                    value={reportTitle}
+                    onChange={(e) => setReportTitle(e.target.value)}
+                    placeholder="Ketik judul laporan..."
+                    className="w-32 lg:w-48 px-3 py-1.5 bg-slate-950 text-slate-200 placeholder-slate-500 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded outline-none transition-all text-xs"
+                    title="Ubah judul cetak laporan"
+                  />
+                </div>
+
+                <div className="relative xs:hidden md:block shrink-0">
+                  <input
+                    type="text"
+                    value={printTitleRowsInput}
+                    onChange={(e) => setPrintTitleRowsInput(e.target.value)}
+                    placeholder="Baris Print Title (contoh: 1, 2-3)..."
+                    className="w-48 lg:w-56 px-3 py-1.5 bg-slate-950 text-slate-200 placeholder-slate-500 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded outline-none transition-all text-xs"
+                    title="Pilih baris yang akan diulang di atas setiap halaman (Print Titles)"
+                  />
+                </div>
+
                 {/* Print Paper Size Selector */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <div className="relative">
                     <select
                       id="select-ukuran-kertas"
