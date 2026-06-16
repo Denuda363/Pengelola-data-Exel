@@ -18,6 +18,7 @@ export default function App() {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [printedColumnKeys, setPrintedColumnKeys] = useState<string[]>([]);
   const [printPaperSize, setPrintPaperSize] = useState<string>('A4');
+  const [printPaperOrientation, setPrintPaperOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [showColDropdown, setShowColDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -226,6 +227,7 @@ export default function App() {
           activeRules={filterRules}
           quickSearchQuery={quickSearch}
           paperSize={printPaperSize}
+          paperOrientation={printPaperOrientation}
         />
       )}
 
@@ -308,21 +310,38 @@ export default function App() {
                 </div>
 
                 {/* Print Paper Size Selector */}
-                <div className="relative">
-                  <select
-                    id="select-ukuran-kertas"
-                    value={printPaperSize}
-                    onChange={(e) => setPrintPaperSize(e.target.value)}
-                    className="pl-3 pr-7 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 rounded appearance-none cursor-pointer text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                  >
-                    <option value="A4">A4</option>
-                    <option value="F4">F4 (Folio)</option>
-                    <option value="Letter">Letter</option>
-                    <option value="Legal">Legal</option>
-                    <option value="A3">A3</option>
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <ChevronDown className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <select
+                      id="select-ukuran-kertas"
+                      value={printPaperSize}
+                      onChange={(e) => setPrintPaperSize(e.target.value)}
+                      className="pl-3 pr-7 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 rounded appearance-none cursor-pointer text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                    >
+                      <option value="A4">A4</option>
+                      <option value="F4">F4 (Folio)</option>
+                      <option value="Letter">Letter</option>
+                      <option value="Legal">Legal</option>
+                      <option value="A3">A3</option>
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  
+                  <div className="relative">
+                    <select
+                      id="select-orientasi-kertas"
+                      value={printPaperOrientation}
+                      onChange={(e) => setPrintPaperOrientation(e.target.value as 'portrait' | 'landscape')}
+                      className="pl-3 pr-7 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 rounded appearance-none cursor-pointer text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                    >
+                      <option value="portrait">Portrait</option>
+                      <option value="landscape">Landscape</option>
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </div>
                   </div>
                 </div>
 

@@ -14,6 +14,7 @@ interface ExcelPrintTemplateProps {
   activeRules: FilterRule[];
   quickSearchQuery: string;
   paperSize: string;
+  paperOrientation: 'portrait' | 'landscape';
 }
 
 export default function ExcelPrintTemplate({
@@ -24,6 +25,7 @@ export default function ExcelPrintTemplate({
   activeRules,
   quickSearchQuery,
   paperSize,
+  paperOrientation,
 }: ExcelPrintTemplateProps) {
   const currentDateStr = new Date().toLocaleString('id-ID', {
     weekday: 'long',
@@ -90,11 +92,16 @@ export default function ExcelPrintTemplate({
     }
     return `
       @page {
-        size: ${sizeDecl};
+        size: ${sizeDecl} ${paperOrientation};
         margin: 1.5cm;
       }
+      .print-grid-table {
+        width: 100%;
+        table-layout: auto;
+        word-break: break-word; /* allow long unspaced strings to break and fit into cell */
+      }
     `;
-  }, [paperSize]);
+  }, [paperSize, paperOrientation]);
 
   return (
     <div className="hidden print:block p-8 bg-white text-slate-950 text-xs leading-relaxed font-sans w-full">
@@ -159,7 +166,7 @@ export default function ExcelPrintTemplate({
       </p>
 
       {/* High-contrast printable grid table */}
-      <table className="w-full text-left border-collapse border border-slate-400">
+      <table className="w-full text-left border-collapse border border-slate-400 print-grid-table">
         <thead>
           <tr className="bg-slate-100 text-[10px] font-bold text-slate-900 border-b border-slate-400 font-mono">
             <th className="py-2 px-2 border-r border-slate-400 w-10 text-center">No</th>
