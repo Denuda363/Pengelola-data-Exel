@@ -13,6 +13,7 @@ interface ExcelPrintTemplateProps {
   rows: ExcelRow[];
   activeRules: FilterRule[];
   quickSearchQuery: string;
+  paperSize: string;
 }
 
 export default function ExcelPrintTemplate({
@@ -22,6 +23,7 @@ export default function ExcelPrintTemplate({
   rows,
   activeRules,
   quickSearchQuery,
+  paperSize,
 }: ExcelPrintTemplateProps) {
   const currentDateStr = new Date().toLocaleString('id-ID', {
     weekday: 'long',
@@ -81,8 +83,22 @@ export default function ExcelPrintTemplate({
     return String(value);
   };
 
+  const pageStyle = React.useMemo(() => {
+    let sizeDecl = paperSize;
+    if (paperSize === 'F4') {
+      sizeDecl = '215.9mm 330.2mm'; // Commonly used for F4 / Folio
+    }
+    return `
+      @page {
+        size: ${sizeDecl};
+        margin: 1.5cm;
+      }
+    `;
+  }, [paperSize]);
+
   return (
     <div className="hidden print:block p-8 bg-white text-slate-950 text-xs leading-relaxed font-sans w-full">
+      <style dangerouslySetInnerHTML={{ __html: pageStyle }} />
       {/* Report Header */}
       <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-end">
         <div>
