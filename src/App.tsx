@@ -21,6 +21,7 @@ export default function App() {
   const [printPaperOrientation, setPrintPaperOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [reportTitle, setReportTitle] = useState<string>('Laporan Analisis Data Excel');
   const [printTitleRowsInput, setPrintTitleRowsInput] = useState<string>('');
+  const [groupByColumn, setGroupByColumn] = useState<string>('');
   const [showColDropdown, setShowColDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +78,7 @@ export default function App() {
     setFilterRules([]);
     setQuickSearch('');
     setSortConfig(null);
+    setGroupByColumn('');
   };
 
   // Change active sheet of current workbook
@@ -88,6 +90,7 @@ export default function App() {
     });
     setFilterRules([]);
     setSortConfig(null);
+    setGroupByColumn('');
   };
 
   // Execute actual filtering logic
@@ -252,6 +255,7 @@ export default function App() {
           reportTitle={reportTitle}
           printTitleRowIndices={printTitleRowIndices}
           originalRows={currentSheet.rows}
+          groupByColumn={groupByColumn}
         />
       )}
 
@@ -353,6 +357,24 @@ export default function App() {
                     className="w-48 lg:w-56 px-3 py-1.5 bg-slate-950 text-slate-200 placeholder-slate-500 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded outline-none transition-all text-xs"
                     title="Pilih baris yang akan diulang di atas setiap halaman (Print Titles)"
                   />
+                </div>
+
+                {/* Group By selector */}
+                <div className="relative shrink-0">
+                  <select
+                    id="select-group-by"
+                    value={groupByColumn}
+                    onChange={(e) => setGroupByColumn(e.target.value)}
+                    className="pl-3 pr-7 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 rounded appearance-none cursor-pointer text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  >
+                    <option value="">-- Tanpa Kelompok --</option>
+                    {currentSheet.columns.map(col => (
+                      <option key={col.key} value={col.key}>Grup: {col.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </div>
                 </div>
 
                 {/* Print Paper Size Selector */}
@@ -496,6 +518,8 @@ export default function App() {
                 rows={filteredRows}
                 sortConfig={sortConfig}
                 onSortChange={setSortConfig}
+                groupByColumn={groupByColumn}
+                setGroupByColumn={setGroupByColumn}
               />
             </section>
           </>

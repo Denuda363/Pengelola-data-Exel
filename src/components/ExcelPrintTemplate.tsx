@@ -18,6 +18,7 @@ interface ExcelPrintTemplateProps {
   reportTitle: string;
   printTitleRowIndices?: number[];
   originalRows?: ExcelRow[];
+  groupByColumn?: string;
 }
 
 export default function ExcelPrintTemplate({
@@ -32,6 +33,7 @@ export default function ExcelPrintTemplate({
   reportTitle,
   printTitleRowIndices = [],
   originalRows,
+  groupByColumn,
 }: ExcelPrintTemplateProps) {
   const currentDateStr = new Date().toLocaleString('id-ID', {
     weekday: 'long',
@@ -63,6 +65,47 @@ export default function ExcelPrintTemplate({
     });
     return sums;
   }, [columns, rows]);
+
+  // Group rows if group-by column is active
+  const groupedPrintData = React.useMemo(() => {
+    if (!groupByColumn) return null;
+    
+    const groups: Record<string, ExcelRow[]> = {};
+    rows.forEach(row => {
+      const rawVal = row[groupByColumn];
+      const groupVal = (rawVal === null || rawVal === undefined || rawVal === '') ? 'Tidak Ada Nilai' : String(rawVal);
+      if (!groups[groupVal]) {
+        groups[groupVal] = [];
+      }
+      groups[groupVal].push(row);
+    });
+    
+    return Object.entries(groups).map(([groupKey, groupRows]) => {
+      const subs: Record<string, number> = {};
+      columns.forEach(col => {
+        if (col.type === 'number') {
+          let colSum = 0;
+          let hasVal = false;
+          groupRows.forEach(r => {
+            const val = Number(r[col.key]);
+            if (!isNaN(val) && r[col.key] !== '') {
+              colSum += val;
+              hasVal = true;
+            }
+          });
+          if (hasVal) {
+            subs[col.key] = colSum;
+          }
+        }
+      });
+      
+      return {
+        groupValue: groupKey,
+        rows: groupRows,
+        subtotals: subs
+      };
+    });
+  }, [rows, columns, groupByColumn]);
 
   const formatPrintCellValue = (value: any, type: 'string' | 'number' | 'boolean' | 'date', columnKey: string): string => {
     if (value === null || value === undefined || value === '') return '—';
@@ -200,7 +243,65 @@ export default function ExcelPrintTemplate({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-300 text-[9px]">
-          {rows.length === 0 ? (
+          {groupByColumn ? (
+            groupedPrintData && groupedPrintData.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length + 1} className="py-8 text-center text-slate-500 italic">
+                  Tidak ada baris yang cocok dengan filter aktif
+                </td>
+              </tr>
+            ) : (
+              groupedPrintData?.map(({ groupValue, rows: groupRows, subtotals }) => (
+                <React.Fragment key={groupValue}>
+                  {/* Print Group Header Row */}
+                  <tr className="bg-slate-200 text-slate-900 border-b border-t border-slate-400 page-break-inside-avoid">
+                    <td colSpan={columns.length + 1} className="py-2 px-3 font-bold text-[9px]">
+                      Kelompok {columns.find(c => c.key === groupByColumn)?.name}: <span className="underline">{groupValue}</span> ({groupRows.length} baris)
+                    </td>
+                  </tr>
+
+                  {/* Group Members Rows */}
+                  {groupRows.map((row, idx) => {
+                    const globalIndex = rows.indexOf(row) + 1;
+                    return (
+                      <tr key={`${groupValue}-row-${idx}`} className="page-break-inside-avoid">
+                        <td className="py-1.5 px-2 text-center border-r border-slate-300 font-mono font-medium">
+                          {globalIndex}
+                        </td>
+                        {columns.map(col => (
+                          <td key={col.key} className="py-1.5 px-2 border-r border-slate-300 last:border-0 max-w-[150px] truncate">
+                            {formatPrintCellValue(row[col.key], col.type, col.key)}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+
+                  {/* Group Subtotals Row (only if group has numeric columns) */}
+                  {Object.keys(subtotals).length > 0 && (
+                    <tr className="bg-slate-50 border-t border-b border-slate-350 font-semibold font-mono text-[8px] text-slate-805 page-break-inside-avoid">
+                      <td className="py-2 px-2 text-center border-r border-slate-300 text-slate-600 font-sans font-bold">SUBTOTAL GRUP</td>
+                      {columns.map(col => {
+                        const sub = subtotals[col.key];
+                        return (
+                          <td key={col.key} className="py-2 px-2 border-r border-slate-300 last:border-0">
+                            {sub !== undefined ? (
+                              <div>
+                                <span className="block text-[7px] text-slate-400 font-normal font-sans uppercase">SUM</span>
+                                {formatPrintCellValue(sub, 'number', col.key)}
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))
+            )
+          ) : rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length + 1} className="py-8 text-center text-slate-500 italic">
                 Tidak ada baris yang cocok dengan filter aktif
@@ -223,15 +324,15 @@ export default function ExcelPrintTemplate({
 
           {/* Sum footer row */}
           {rows.length > 0 && Object.keys(columnSums).length > 0 && (
-            <tr className="bg-slate-50 border-t-2 border-slate-400 font-semibold font-mono text-[9px]">
-              <td className="py-2 px-2 text-center border-r border-slate-400 text-slate-700">RINGKASAN</td>
+            <tr className="bg-slate-100 border-t-2 border-slate-500 font-semibold font-mono text-[9px] page-break-inside-avoid">
+              <td className="py-2 px-2 text-center border-r border-slate-400 text-slate-850 font-bold">RINGKASAN TOTAL</td>
               {columns.map(col => {
                 const sum = columnSums[col.key];
                 return (
-                  <td key={col.key} className="py-2 px-2 border-r border-slate-400 last:border-0">
+                  <td key={col.key} className="py-2 px-2 border-r border-slate-400 last:border-0 font-bold">
                     {sum !== undefined ? (
                       <div>
-                        <span className="block text-[8px] text-slate-400 font-bold uppercase">SUM</span>
+                        <span className="block text-[8px] text-slate-500 font-bold uppercase">SUM TOTAL</span>
                         {formatPrintCellValue(sum, 'number', col.key)}
                       </div>
                     ) : (
@@ -240,8 +341,8 @@ export default function ExcelPrintTemplate({
                   </td>
                 );
               })}
-              </tr>
-            )}
+            </tr>
+          )}
         </tbody>
       </table>
 

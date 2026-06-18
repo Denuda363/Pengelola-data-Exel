@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Info, Percent, Sigma } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, ChevronsUpDown, Info, Percent, Sigma } from 'lucide-react';
 import { ExcelColumn, ExcelRow, SortConfig } from '../types';
 
 interface ExcelTableProps {
@@ -12,6 +12,8 @@ interface ExcelTableProps {
   rows: ExcelRow[];
   sortConfig: SortConfig | null;
   onSortChange: (config: SortConfig | null) => void;
+  groupByColumn: string;
+  setGroupByColumn: (col: string) => void;
 }
 
 // Format Helper
@@ -84,10 +86,16 @@ function formatCellValue(value: any, type: 'string' | 'number' | 'boolean' | 'da
   return <span className="text-slate-300 font-medium">{strVal}</span>;
 }
 
-export default function ExcelTable({ columns, rows, sortConfig, onSortChange }: ExcelTableProps) {
+export default function ExcelTable({ columns, rows, sortConfig, onSortChange, groupByColumn, setGroupByColumn }: ExcelTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedSumCol, setSelectedSumCol] = useState<string>('');
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Reset collapsed state when grouping changes
+  React.useEffect(() => {
+    setCollapsedGroups({});
+  }, [groupByColumn]);
 
   // Reset pagination when rows length changes
   React.useEffect(() => {
@@ -163,6 +171,61 @@ export default function ExcelTable({ columns, rows, sortConfig, onSortChange }: 
 
   const totalPages = Math.ceil(rows.length / rowsPerPage);
 
+  // Group rows if group-by column is selected
+  const groupedData = useMemo(() => {
+    if (!groupByColumn) return null;
+    
+    const groups: Record<string, ExcelRow[]> = {};
+    rows.forEach(row => {
+      const rawVal = row[groupByColumn];
+      const groupVal = (rawVal === null || rawVal === undefined || rawVal === '') ? 'Tidak Ada Nilai' : String(rawVal);
+      if (!groups[groupVal]) {
+        groups[groupVal] = [];
+      }
+      groups[groupVal].push(row);
+    });
+    
+    return Object.entries(groups).map(([groupKey, groupRows]) => {
+      let groupSum = 0;
+      let hasNumeric = false;
+      if (selectedSumCol) {
+        groupRows.forEach(r => {
+          const val = Number(r[selectedSumCol]);
+          if (!isNaN(val) && r[selectedSumCol] !== '') {
+            groupSum += val;
+            hasNumeric = true;
+          }
+        });
+      }
+      
+      return {
+        groupValue: groupKey,
+        rows: groupRows,
+        subtotal: hasNumeric ? groupSum : null,
+      };
+    });
+  }, [rows, groupByColumn, selectedSumCol]);
+
+  const toggleGroup = (groupKey: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupKey]: !prev[groupKey]
+    }));
+  };
+
+  const expandAllGroups = () => {
+    setCollapsedGroups({});
+  };
+
+  const collapseAllGroups = () => {
+    if (!groupedData) return;
+    const collapsed: Record<string, boolean> = {};
+    groupedData.forEach(g => {
+      collapsed[g.groupValue] = true;
+    });
+    setCollapsedGroups(collapsed);
+  };
+
   const formatSummaryValue = (val: number, columnKey: string) => {
     const keyLower = columnKey.toLowerCase();
     const isCurrency = keyLower.includes('harga') || keyLower.includes('total') || keyLower.includes('pendapatan') || keyLower.includes('omset') || keyLower.includes('gaji') || keyLower.includes('nominal') || keyLower.includes('revenue') || keyLower.includes('biaya');
@@ -230,6 +293,29 @@ export default function ExcelTable({ columns, rows, sortConfig, onSortChange }: 
 
       {/* Main Table Container */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+        {groupByColumn && groupedData && (
+          <div className="px-4 py-3 bg-slate-950/60 border-b border-slate-800/85 flex flex-col sm:flex-row gap-3 justify-between items-center text-xs text-slate-300">
+            <span className="font-semibold text-slate-400">
+              Pengelompokan aktif berdasarkan <span className="text-emerald-400">"{columns.find(c => c.key === groupByColumn)?.name}"</span> &bull; Terbentuk <span className="text-emerald-400 font-mono font-bold">{groupedData.length}</span> Kelompok
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={expandAllGroups}
+                className="text-[10px] bg-slate-800 hover:bg-slate-750 text-slate-200 px-2.5 py-1 rounded transition-colors font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Buka Semua
+              </button>
+              <button
+                type="button"
+                onClick={collapseAllGroups}
+                className="text-[10px] bg-slate-800 hover:bg-slate-750 text-slate-200 px-2.5 py-1 rounded transition-colors font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Tutup Semua
+              </button>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table id="excel-data-table" className="w-full text-left border-collapse min-w-[700px]">
             <thead>
@@ -263,7 +349,78 @@ export default function ExcelTable({ columns, rows, sortConfig, onSortChange }: 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-xs">
-              {paginatedRows.length === 0 ? (
+              {groupByColumn ? (
+                groupedData && groupedData.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length + 1} className="py-12 text-center text-slate-500 italic">
+                      Tidak ada baris yang cocok dengan filter aktif
+                    </td>
+                  </tr>
+                ) : groupedData ? (
+                  groupedData.map(({ groupValue, rows: groupRows, subtotal }) => {
+                    const isCollapsed = collapsedGroups[groupValue];
+                    return (
+                      <React.Fragment key={groupValue}>
+                        {/* Group Header Row */}
+                        <tr
+                          onClick={() => toggleGroup(groupValue)}
+                          className="bg-slate-800/40 hover:bg-slate-800/70 transition-colors cursor-pointer border-y border-slate-800 select-none font-bold"
+                        >
+                          <td className="py-3 px-3 text-center border-r border-slate-800">
+                            {isCollapsed ? (
+                              <ChevronRight className="w-3.5 h-3.5 mx-auto text-emerald-400" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5 mx-auto text-emerald-400" />
+                            )}
+                          </td>
+                          <td colSpan={columns.length} className="py-3 px-4 text-xs text-slate-200">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Kelompok:</span>
+                                <span className="text-emerald-400 font-extrabold">{groupValue}</span>
+                                <span className="bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-400 border border-slate-850 font-normal">
+                                  {groupRows.length} Baris
+                                </span>
+                              </div>
+                              {subtotal !== null && (
+                                <div className="flex items-center gap-1.5 bg-emerald-500/5 border border-emerald-500/10 px-2.5 py-1 rounded text-[10px]">
+                                  <span className="text-slate-500 font-bold uppercase text-[9px]">Subtotal:</span>
+                                  <span className="text-emerald-400 font-bold font-mono">
+                                    {formatSummaryValue(subtotal, selectedSumCol)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Group Rows (only if not collapsed) */}
+                        {!isCollapsed && groupRows.map((row, idx) => {
+                          const globalIndex = rows.indexOf(row) + 1;
+                          return (
+                            <tr
+                              key={`${groupValue}-row-${idx}`}
+                              className="bg-slate-900/30 hover:bg-slate-850/50 transition-colors"
+                            >
+                              <td className="py-2.5 px-3 text-center text-slate-500 border-r border-slate-800 bg-slate-950/10 font-mono text-[11px] font-medium border-l-[3px] border-l-emerald-500/30">
+                                {globalIndex}
+                              </td>
+                              {columns.map((col) => (
+                                <td
+                                  key={col.key}
+                                  className="py-2.5 px-4 text-slate-300 border-r border-slate-800/60 last:border-0"
+                                >
+                                  {formatCellValue(row[col.key], col.type, col.key)}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })
+                ) : null
+              ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length + 1} className="py-12 text-center text-slate-500 italic">
                     {rows.length === 0 ? 'Tidak ada data file excel yang tersedia' : 'Tidak ada baris yang cocok dengan filter aktif'}
@@ -297,7 +454,7 @@ export default function ExcelTable({ columns, rows, sortConfig, onSortChange }: 
         </div>
 
         {/* Dynamic Pagination Controls */}
-        {totalPages > 0 && (
+        {!groupByColumn && totalPages > 0 && (
           <div className="bg-slate-950 px-4 py-3.5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-400">
             <div className="flex items-center gap-4 text-xs">
               <span className="font-medium text-slate-400">
@@ -362,6 +519,17 @@ export default function ExcelTable({ columns, rows, sortConfig, onSortChange }: 
                 Terakhir
               </button>
             </div>
+          </div>
+        )}
+
+        {groupByColumn && (
+          <div className="bg-slate-950 px-4 py-3.5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-400 text-xs mt-auto">
+            <span>
+              Menampilkan <strong className="text-emerald-400 font-mono text-xs">{groupedData?.length || 0}</strong> kelompok dengan total <strong className="font-bold text-emerald-400 font-mono text-xs">{rows.length}</strong> baris data.
+            </span>
+            <span className="text-[11px] text-slate-500 italic">
+              Klik pada baris kelompok untuk melipat/membuka isi baris data.
+            </span>
           </div>
         )}
       </div>
